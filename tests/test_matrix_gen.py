@@ -2,6 +2,7 @@
 Tests for MatrixGen module
 """
 
+import math
 import pytest
 import torch
 import torch.nn as nn
@@ -290,7 +291,7 @@ class TestXavierScaling:
         
         # Check that variance is reasonable for Xavier initialization
         # For Xavier uniform, variance should be ~2/(fan_in + fan_out)
-        expected_std = np.sqrt(2.0 / (100 + 100))
+        expected_std = math.sqrt(2.0 / (100 + 100))
         actual_std = W.std().item()
         
         # Allow some tolerance

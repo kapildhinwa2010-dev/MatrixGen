@@ -128,8 +128,8 @@ class MatrixGenerator(nn.Module):
     ) -> Tuple[torch.Tensor, int, int]:
         """Generate a chunk of the weight matrix"""
         # Create coordinate grid for this chunk
-        i = torch.linspace(-1, 1, i_end - i_start, device=device)
-        j = torch.linspace(-1, 1, j_end - j_start, device=device)
+        i = torch.linspace(-1, 1, out_dim, device=device)[i_start:i_end]
+        j = torch.linspace(-1, 1, in_dim, device=device)[j_start:j_end]
         grid_i, grid_j = torch.meshgrid(i, j, indexing='ij')
         
         # Stack coordinates
