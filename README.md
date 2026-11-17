@@ -1,66 +1,68 @@
 # MatrixGen
 
-[![CI](https://github.com/kapildhinwa2010-dev/MatrixGen/actions/workflows/ci.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/MatrixGen/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/kapildhinwa2010-dev/MatrixGen/actions/workflows/codeql.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/MatrixGen/actions/workflows/codeql.yml)
+MatrixGen is a small Python/PyTorch prototype for producing two-dimensional tensors from row and column coordinates. A multilayer perceptron maps normalized coordinate pairs to scalar values; its parameters are randomly initialized, so generated matrices are not trained or reconstructed weights.
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch 2.0+](https://img.shields.io/badge/pytorch-2.0%2B-ee4c2c.svg)](https://pytorch.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
+## Status
 
-Coordinate-based generator that emits weight matrices of arbitrary size.
+The repository contains a working implementation and unit tests. Its package metadata labels the project **Beta**. It should be treated as an experimental matrix-generation prototype, not as a validated compression method or a production-ready way to create model weights. No task-quality, reconstruction-quality, or performance benchmarks are provided here.
 
-## What it does
+## What is implemented
 
-MatrixGenerator maps 2D coordinates through a small MLP (SiLU by
-default) to scalar values, producing matrices of any requested shape
-from roughly 10K generator parameters, with chunked processing for
-large shapes.
+- `MatrixGenerator` creates a matrix of a requested `(out_dim, in_dim)` shape by evaluating a coordinate-to-scalar PyTorch network.
+- Configurable hidden width, depth, chunk size, and activation (`silu`, `relu`, `gelu`, `tanh`, `sigmoid`, `elu`, or `leaky_relu`).
+- Chunked coordinate evaluation for larger outputs, as well as batch generation for named matrix shapes.
+- `MatrixGenConfig` and `MatrixGenWrapper` helpers for requesting matrices shaped for linear layers; `generate_model_weights` returns generated tensors for a model's linear layers.
+- A factory function, `create_matrix_generator`, and a runnable example in `matrix_gen.py`.
 
-## Installation
+## Requirements and use
 
-    pip install torch numpy pytest
+Python 3.10 or later is declared in the project metadata. From the repository root, install the listed dependencies:
 
-## Usage
+```bash
+python -m pip install -r requirements.txt
+```
 
-    from matrix_gen import create_matrix_generator
+Run the module's small demonstration:
 
-    gen = create_matrix_generator(hidden_size=128, num_layers=4)
-    W = gen.generate_matrix(1000, 1000)
+```bash
+python matrix_gen.py
+```
 
-    shapes = [("fc1", 256, 128), ("fc2", 128, 64)]
-    weights = gen.generate_batch(shapes)
+Or import the module from the repository checkout:
 
-## API
+```python
+from matrix_gen import MatrixGenerator
 
-- MatrixGenerator(hidden_size=128, num_layers=4, activation="silu",
-  chunk_size=16384): generate_matrix, generate_batch, count_parameters
-- Activations: silu, relu, gelu, tanh, sigmoid, elu, leaky_relu
-- MatrixGenWrapper / MatrixGenConfig: generate_layer_weights,
-  generate_model_weights
-- create_matrix_generator(...) factory
+generator = MatrixGenerator(hidden_size=64, num_layers=3)
+weights = generator.generate_matrix(out_dim=128, in_dim=64)
+print(weights.shape)  # torch.Size([128, 64])
 
-## Honest results and limitations
+batch = generator.generate_batch([
+    ("projection", 128, 64),
+    ("output", 10, 128),
+])
+```
 
-- The table often quoted (up to 10,000,000x) is parameter arithmetic:
-  output elements divided by ~10K generator params. It is not a
-  compression result and implies nothing about quality.
-- An untrained generator outputs a smooth random field, not useful
-  weights. Making the matrices useful requires fitting the generator
-  per matrix, which costs at least as much as the fitting itself saves
-  for small and medium matrices.
-- No task-accuracy or reconstruction-error numbers are reported because
-  none were measured in a controlled experiment.
-- Generation of very large matrices is slow on CPU (minutes for
-  10000x10000-scale shapes).
+The example generates values from the network's random initialization. It does not train the generator or make the resulting tensors useful for a particular model. The repository has no configured command-line entry point; `python matrix_gen.py` runs only the included demonstration.
 
-## Negative results (from the source experiments)
+## Tests
 
-- The reserv.dean-part-2 log records that coordinate-generated weights
-  did not reconstruct trained weights acceptably without per-layer
-  training, and the related carrier-mode recall failed about half of
-  noise trials. The robust design kept in the toolkit is the
-  Reed-Solomon slot lattice (ECC-Memory).
+The test suite can be run from the repository root with:
+
+```bash
+python -m pytest -q
+```
+
+On commit `14116ff14615cbe462811f550f0227482895a261`, this command was run locally with Python 3.12.3 and completed with **26 passed**. The GitHub Actions workflow is configured to run pytest on Python 3.10, 3.11, and 3.12; no remote workflow result is asserted here.
+
+## Limitations
+
+- There is no training, fitting, checkpoint-loading, or reconstruction workflow in the implementation. Generated tensors are outputs of the current randomly initialized network, not learned replacements for existing weights.
+- The network accepts only two-dimensional row/column coordinates and produces one scalar per coordinate pair; broader coordinate systems are not implemented.
+- `generate_model_weights` returns a dictionary of tensors rather than assigning them to the input model. Its generated bias entries have shape `(1, out_features)`, which differs from the usual one-dimensional `nn.Linear.bias` shape.
+- Chunking limits intermediate coordinate evaluation, but the complete output matrix is still allocated in memory.
+- Tests exercise generation and wrapper behavior, not model accuracy, compression quality, large-scale speed, or CUDA execution. No benchmark or controlled quality results are reported.
 
 ## License
 
-MIT - see [LICENSE](LICENSE).
+The repository's `LICENSE` file contains the MIT License, copyright 2026 Kapil Dhinwa. See [LICENSE](LICENSE) for the terms.
